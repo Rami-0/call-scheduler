@@ -22,15 +22,13 @@ export default function ScheduledCalls() {
   }, []);
 
   const loadScheduledCalls = async () => {
-    console.log('loadScheduledCalls function invoked'); // Added log
     try {
       const calls = await AsyncStorage.getItem('scheduledCalls');
       if (calls) {
         const parsedCalls = JSON.parse(calls);
-        console.log('Loaded calls from AsyncStorage:', parsedCalls); // Added log
         setScheduledCalls(parsedCalls);
       } else {
-        console.log('No scheduled calls found in AsyncStorage'); // Added log for empty case
+        console.log('No scheduled calls found in AsyncStorage');
       }
     } catch (error) {
       console.error('Error loading scheduled calls:', error);

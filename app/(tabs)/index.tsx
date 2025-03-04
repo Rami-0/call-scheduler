@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, FlatList } from 'react-native'; // Import FlatList
 import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
@@ -14,20 +14,18 @@ interface Contact {
   phoneNumber: string;
 }
 
+const makeCall = (phoneNumber: string) => {
+  Linking.openURL(`tel:${phoneNumber}`);
+};
+
 
 
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const phoneNumber = notification.request.content.data.phoneNumber;
-    if (phoneNumber) {
-      Linking.openURL(`tel:${phoneNumber}`); // Auto-call on notification click
-    }
-    return {
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    };
-  },
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
 });
 
 export default function ScheduleCall() {
@@ -36,6 +34,26 @@ export default function ScheduleCall() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showContactList, setShowContactList] = useState(false); // State to control contact list visibility
+
+
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  useEffect(() => {
+    // Assign the subscription to the ref's current property
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const phoneNumber = response.notification.request.content.data.phoneNumber;
+      if (phoneNumber) {
+        makeCall(phoneNumber);
+      }
+    });
+
+    // Clean up the subscription on component unmount
+    return () => {
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, []);
 
   const [fontsLoaded] = useFonts({
     'Inter-Regular': Inter_400Regular,
@@ -74,8 +92,6 @@ export default function ScheduleCall() {
   };
 
   const scheduleCall = async () => {
-    console.log('scheduleCall function invoked'); // Added log
-
     if (!contact?.phoneNumber) {
       alert('Please select a contact first');
       return;
@@ -96,25 +112,16 @@ export default function ScheduleCall() {
       trigger,
     });
 
-    console.log('Notification scheduled:', { // Added log
-      title: 'Scheduled Call Reminder',
-      body: `Time to call ${contact?.name}`,
-      date: date.toLocaleString(),
-      trigger
-    });
-
     const newCall = {
       contact,
       date: date.toISOString(),
       id: Date.now().toString(),
     };
-    console.log('Saving call to AsyncStorage:', newCall); // Log newCall object
 
     try {
       const existingCalls = await AsyncStorage.getItem('scheduledCalls');
       const calls = existingCalls ? JSON.parse(existingCalls) : [];
-      const callsToSave = [...calls, newCall]; // Create new array for logging
-      console.log('Full calls array being saved:', callsToSave); // Log full calls array
+      const callsToSave = [...calls, newCall];
       await AsyncStorage.setItem('scheduledCalls', JSON.stringify(callsToSave));
       alert('Call scheduled successfully!');
     } catch (error) {
