@@ -22,17 +22,22 @@ export default function ScheduledCalls() {
   }, []);
 
   const loadScheduledCalls = async () => {
+    console.log('loadScheduledCalls function invoked'); // Added log
     try {
       const calls = await AsyncStorage.getItem('scheduledCalls');
       if (calls) {
-        setScheduledCalls(JSON.parse(calls));
+        const parsedCalls = JSON.parse(calls);
+        console.log('Loaded calls from AsyncStorage:', parsedCalls); // Added log
+        setScheduledCalls(parsedCalls);
+      } else {
+        console.log('No scheduled calls found in AsyncStorage'); // Added log for empty case
       }
     } catch (error) {
       console.error('Error loading scheduled calls:', error);
     }
   };
 
-  const deleteCall = async (id: string) => { // Explicit type for id
+  const deleteCall = async (id: string) => {
     try {
       const updatedCalls = scheduledCalls.filter(call => call.id !== id);
       await AsyncStorage.setItem('scheduledCalls', JSON.stringify(updatedCalls));
@@ -42,11 +47,11 @@ export default function ScheduledCalls() {
     }
   };
 
-  const makeCall = (phoneNumber: string) => { // Explicit type for phoneNumber
+  const makeCall = (phoneNumber: string) => {
     Linking.openURL(`tel:${phoneNumber}`);
   };
 
-  const renderItem = ({ item }: { item: ScheduledCall }) => ( // Explicit type for item
+  const renderItem = ({ item }: { item: ScheduledCall }) => (
     <View style={styles.callItem}>
       <View style={styles.callInfo}>
         <Text style={styles.contactName}>{item.contact.name}</Text>
@@ -57,7 +62,13 @@ export default function ScheduledCalls() {
       <View style={styles.actions}>
         <TouchableOpacity
           onPress={() => makeCall(item.contact.phoneNumber)}
-          style={[styles.actionButton, styles.callButton]}>
+          style={[
+            styles.actionButton,
+            styles.callButton,
+            new Date(item.date) < new Date(Date.now() - 5 * 60 * 1000) && styles.callButtonDisabled,
+          ]}
+          disabled={new Date(item.date) < new Date(Date.now() - 5 * 60 * 1000)}
+        >
           <Phone size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity
@@ -76,9 +87,9 @@ export default function ScheduledCalls() {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
+        ListEmptyComponent={() => (
           <Text style={styles.emptyText}>No scheduled calls</Text>
-        }
+        )}
       />
     </View>
   );
@@ -136,6 +147,9 @@ const styles = StyleSheet.create({
   },
   callButton: {
     backgroundColor: '#007AFF',
+  },
+  callButtonDisabled: {
+    backgroundColor: '#CCCCCC',
   },
   deleteButton: {
     backgroundColor: '#FF3B30',

@@ -2,29 +2,32 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, FlatList } from 'react-native'; // Import FlatList
 import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { UserPlus, Bell } from 'lucide-react-native';
+import { Modal } from 'react-native'; // Import Modal
+import * as Linking from 'expo-linking'; // Import Linking
 
 interface Contact {
   name: string;
   phoneNumber: string;
 }
 
-interface ScheduledContact extends Contact {
-  date: string;
-  id: string;
-}
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFonts, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { UserPlus, Bell } from 'lucide-react-native';
-import { Modal } from 'react-native'; // Import Modal
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    const phoneNumber = notification.request.content.data.phoneNumber;
+    if (phoneNumber) {
+      Linking.openURL(`tel:${phoneNumber}`); // Auto-call on notification click
+    }
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 export default function ScheduleCall() {
@@ -33,7 +36,7 @@ export default function ScheduleCall() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showContactList, setShowContactList] = useState(false); // State to control contact list visibility
-  
+
   const [fontsLoaded] = useFonts({
     'Inter-Regular': Inter_400Regular,
     'Inter-SemiBold': Inter_600SemiBold,
@@ -46,7 +49,7 @@ export default function ScheduleCall() {
   const requestPermissions = async () => {
     const { status: contactStatus } = await Contacts.requestPermissionsAsync();
     const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-    
+
     if (contactStatus !== 'granted') {
       alert('Contact permissions are required to use this app.');
     }
@@ -71,20 +74,33 @@ export default function ScheduleCall() {
   };
 
   const scheduleCall = async () => {
+    console.log('scheduleCall function invoked'); // Added log
+
     if (!contact?.phoneNumber) {
       alert('Please select a contact first');
       return;
     }
 
-    const trigger = date;
-    
+    const trigger: Notifications.DateTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: date.getTime(),
+    };
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Scheduled Call Reminder',
         body: `Time to call ${contact.name}`,
         data: { phoneNumber: contact.phoneNumber },
+        sound: 'Electronic', // Add 'Electronic' sound to notification
       },
       trigger,
+    });
+
+    console.log('Notification scheduled:', { // Added log
+      title: 'Scheduled Call Reminder',
+      body: `Time to call ${contact?.name}`,
+      date: date.toLocaleString(),
+      trigger
     });
 
     const newCall = {
@@ -92,11 +108,14 @@ export default function ScheduleCall() {
       date: date.toISOString(),
       id: Date.now().toString(),
     };
+    console.log('Saving call to AsyncStorage:', newCall); // Log newCall object
 
     try {
       const existingCalls = await AsyncStorage.getItem('scheduledCalls');
       const calls = existingCalls ? JSON.parse(existingCalls) : [];
-      await AsyncStorage.setItem('scheduledCalls', JSON.stringify([...calls, newCall]));
+      const callsToSave = [...calls, newCall]; // Create new array for logging
+      console.log('Full calls array being saved:', callsToSave); // Log full calls array
+      await AsyncStorage.setItem('scheduledCalls', JSON.stringify(callsToSave));
       alert('Call scheduled successfully!');
     } catch (error) {
       console.error('Error saving scheduled call:', error);
@@ -153,12 +172,12 @@ export default function ScheduleCall() {
                 onPress={() => {
                   setContact({
                     name: item.name,
-                    phoneNumber: item.phoneNumbers?.[0]?.number || '', // Use empty string if phoneNumber is undefined
+                    phoneNumber: item.phoneNumbers?.[0]?.number || '',
                   });
                   setShowContactList(false);
                 }}>
                 <Text style={styles.contactName}>{item.name}</Text>
-                <Text style={styles.contactNumber}>{item.phoneNumbers?.[0]?.number || 'No number'}</Text> // Display 'No number' if phoneNumber is undefined
+                <Text style={styles.contactNumber}>{item.phoneNumbers?.[0]?.number || 'No number'}</Text>
               </TouchableOpacity>
             )}
           />
