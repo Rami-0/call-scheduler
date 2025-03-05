@@ -1,7 +1,7 @@
 
 # Call Scheduler App
 
-***"Note: If you have any idea about how to do the signing of the app without a developer account, or a way to publish it outside of Appstore to hit me up on telegram @u88s8"***
+***"Note: If you have any idea about how to sign the app without a developer account or a way to publish it outside of the App Store, hit me up on telegram @u88s8"***
 
 This React Native application allows users to schedule phone calls to their contacts at a specified date and time. It is inspired by various auto-calling Android applications and aims to provide similar functionality on iOS.
 
